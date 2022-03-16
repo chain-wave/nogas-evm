@@ -347,12 +347,7 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
     ) -> (ExitReason, Vec<u8>) {
         self.initialize_with_access_list(access_list);
 
-        match self.create_inner(
-            caller,
-            CreateScheme::Legacy { caller },
-            value,
-            init_code,
-        ) {
+        match self.create_inner(caller, CreateScheme::Legacy { caller }, value, init_code) {
             Capture::Exit((r, _, v)) => (r, v),
             Capture::Trap(_) => unreachable!(),
         }
@@ -397,7 +392,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         address: H160,
         value: U256,
         data: Vec<u8>,
-        gas_limit: u64,
         access_list: Vec<(H160, Vec<H256>)>,
     ) -> (ExitReason, Vec<u8>) {
         // Initialize initial addresses for EIP-2929
@@ -424,7 +418,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
                 value,
             }),
             data,
-            Some(gas_limit),
             false,
             context,
         ) {
@@ -609,13 +602,11 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn call_inner(
         &mut self,
         code_address: H160,
         transfer: Option<Transfer>,
         input: Vec<u8>,
-        target_gas: Option<u64>,
         is_static: bool,
         context: Context,
     ) -> Capture<(ExitReason, Vec<u8>), Infallible> {
@@ -845,18 +836,11 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet> Handler
         code_address: H160,
         transfer: Option<Transfer>,
         input: Vec<u8>,
-        target_gas: Option<u64>,
+        _target_gas: Option<u64>,
         is_static: bool,
         context: Context,
     ) -> Capture<(ExitReason, Vec<u8>), Self::CallInterrupt> {
-        self.call_inner(
-            code_address,
-            transfer,
-            input,
-            target_gas,
-            is_static,
-            context,
-        )
+        self.call_inner(code_address, transfer, input, is_static, context)
     }
 
     #[inline]
