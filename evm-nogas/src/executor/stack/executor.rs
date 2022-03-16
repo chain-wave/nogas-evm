@@ -8,7 +8,7 @@ use alloc::{
     rc::Rc,
     vec::Vec,
 };
-use core::{cmp::min, convert::Infallible};
+use core::convert::Infallible;
 use ethereum::Log;
 use evm_core::{ExitFatal, ExitRevert};
 use primitive_types::{H160, H256, U256};
@@ -58,7 +58,7 @@ pub struct StackSubstateMetadata {
 }
 
 impl StackSubstateMetadata {
-    pub fn new(gas_limit: u64, config: &Config) -> Self {
+    pub fn new(config: &Config) -> Self {
         let accessed = if config.increase_state_access_gas {
             Some(Accessed::default())
         } else {
@@ -86,7 +86,7 @@ impl StackSubstateMetadata {
         Ok(())
     }
 
-    pub fn swallow_revert(&mut self, other: Self) -> Result<(), ExitError> {
+    pub fn swallow_revert(&mut self, _other: Self) -> Result<(), ExitError> {
         Ok(())
     }
 
@@ -94,7 +94,7 @@ impl StackSubstateMetadata {
         Ok(())
     }
 
-    pub fn spit_child(&self, gas_limit: u64, is_static: bool) -> Self {
+    pub fn spit_child(&self, is_static: bool) -> Self {
         Self {
             is_static: is_static || self.is_static,
             depth: match self.depth {
@@ -153,7 +153,7 @@ pub trait StackState: Backend {
     fn metadata(&self) -> &StackSubstateMetadata;
     fn metadata_mut(&mut self) -> &mut StackSubstateMetadata;
 
-    fn enter(&mut self, gas_limit: u64, is_static: bool);
+    fn enter(&mut self, is_static: bool);
     fn exit_commit(&mut self) -> Result<(), ExitError>;
     fn exit_revert(&mut self) -> Result<(), ExitError>;
     fn exit_discard(&mut self) -> Result<(), ExitError>;
@@ -178,7 +178,6 @@ pub trait StackState: Backend {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PrecompileOutput {
     pub exit_status: ExitSucceed,
-    pub cost: u64,
     pub output: Vec<u8>,
     pub logs: Vec<Log>,
 }
@@ -193,7 +192,6 @@ pub enum PrecompileFailure {
     Revert {
         exit_status: ExitRevert,
         output: Vec<u8>,
-        cost: u64,
     },
     /// Mark this failure as fatal, and all EVM execution stacks must be exited.
     Fatal { exit_status: ExitFatal },
@@ -212,7 +210,6 @@ pub trait PrecompileSet {
         &self,
         address: H160,
         input: &[u8],
-        gas_limit: Option<u64>,
         context: &Context,
         is_static: bool,
     ) -> Option<PrecompileResult>;
@@ -224,14 +221,7 @@ pub trait PrecompileSet {
 }
 
 impl PrecompileSet for () {
-    fn execute(
-        &self,
-        _: H160,
-        _: &[u8],
-        _: Option<u64>,
-        _: &Context,
-        _: bool,
-    ) -> Option<PrecompileResult> {
+    fn execute(&self, _: H160, _: &[u8], _: &Context, _: bool) -> Option<PrecompileResult> {
         None
     }
 
@@ -245,19 +235,18 @@ impl PrecompileSet for () {
 ///  * Gas limit
 ///  * Context
 ///  * Is static
-pub type PrecompileFn = fn(&[u8], Option<u64>, &Context, bool) -> PrecompileResult;
+pub type PrecompileFn = fn(&[u8], &Context, bool) -> PrecompileResult;
 
 impl PrecompileSet for BTreeMap<H160, PrecompileFn> {
     fn execute(
         &self,
         address: H160,
         input: &[u8],
-        gas_limit: Option<u64>,
         context: &Context,
         is_static: bool,
     ) -> Option<PrecompileResult> {
         self.get(&address)
-            .map(|precompile| (*precompile)(input, gas_limit, context, is_static))
+            .map(|precompile| (*precompile)(input, context, is_static))
     }
 
     /// Check if the given address is a precompile. Should only be called to
@@ -314,8 +303,8 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
     }
 
     /// Create a substate executor from the current executor.
-    pub fn enter_substate(&mut self, gas_limit: u64, is_static: bool) {
-        self.state.enter(gas_limit, is_static);
+    pub fn enter_substate(&mut self, is_static: bool) {
+        self.state.enter(is_static);
     }
 
     /// Exit a substate. Panic if it results an empty substate stack.
@@ -354,7 +343,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         caller: H160,
         value: U256,
         init_code: Vec<u8>,
-        gas_limit: u64,
         access_list: Vec<(H160, Vec<H256>)>, // See EIP-2930
     ) -> (ExitReason, Vec<u8>) {
         self.initialize_with_access_list(access_list);
@@ -364,8 +352,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
             CreateScheme::Legacy { caller },
             value,
             init_code,
-            Some(gas_limit),
-            false,
         ) {
             Capture::Exit((r, _, v)) => (r, v),
             Capture::Trap(_) => unreachable!(),
@@ -379,7 +365,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         value: U256,
         init_code: Vec<u8>,
         salt: H256,
-        gas_limit: u64,
         access_list: Vec<(H160, Vec<H256>)>, // See EIP-2930
     ) -> (ExitReason, Vec<u8>) {
         let code_hash = H256::from_slice(Keccak256::digest(&init_code).as_slice());
@@ -394,8 +379,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
             },
             value,
             init_code,
-            Some(gas_limit),
-            false,
         ) {
             Capture::Exit((r, _, v)) => (r, v),
             Capture::Trap(_) => unreachable!(),
@@ -442,8 +425,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
             }),
             data,
             Some(gas_limit),
-            false,
-            false,
             false,
             context,
         ) {
@@ -499,8 +480,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         scheme: CreateScheme,
         value: U256,
         init_code: Vec<u8>,
-        target_gas: Option<u64>,
-        take_l64: bool,
     ) -> Capture<(ExitReason, Option<H160>, Vec<u8>), Infallible> {
         macro_rules! try_or_fail {
             ( $e:expr ) => {
@@ -520,10 +499,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
             Ok(())
         }
 
-        fn l64(gas: u64) -> u64 {
-            gas - gas / 64
-        }
-
         let address = self.create_address(scheme);
 
         self.state.metadata_mut().access_address(caller);
@@ -541,7 +516,7 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
 
         self.state.inc_nonce(caller);
 
-        self.enter_substate(gas_limit, false);
+        self.enter_substate(false);
 
         {
             if self.code_size(address) != U256::zero() {
@@ -642,13 +617,11 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         input: Vec<u8>,
         target_gas: Option<u64>,
         is_static: bool,
-        take_l64: bool,
-        take_stipend: bool,
         context: Context,
     ) -> Capture<(ExitReason, Vec<u8>), Infallible> {
         let code = self.code(code_address);
 
-        self.enter_substate(gas_limit, is_static);
+        self.enter_substate(is_static);
         self.state.touch(context.address);
 
         if let Some(depth) = self.state.metadata().depth {
@@ -668,15 +641,14 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
             }
         }
 
-        if let Some(result) =
-            self.precompile_set
-                .execute(code_address, &input, Some(gas_limit), &context, is_static)
+        if let Some(result) = self
+            .precompile_set
+            .execute(code_address, &input, &context, is_static)
         {
             return match result {
                 Ok(PrecompileOutput {
                     exit_status,
                     output,
-                    cost,
                     logs,
                 }) => {
                     for Log {
@@ -703,7 +675,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
                 Err(PrecompileFailure::Revert {
                     exit_status,
                     output,
-                    cost,
                 }) => {
                     let _ = self.exit_substate(StackExitKind::Reverted);
                     Capture::Exit((ExitReason::Revert(exit_status), output))
@@ -864,9 +835,9 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet> Handler
         scheme: CreateScheme,
         value: U256,
         init_code: Vec<u8>,
-        target_gas: Option<u64>,
+        _target_gas: Option<u64>,
     ) -> Capture<(ExitReason, Option<H160>, Vec<u8>), Self::CreateInterrupt> {
-        self.create_inner(caller, scheme, value, init_code, target_gas, true)
+        self.create_inner(caller, scheme, value, init_code)
     }
 
     fn call(
@@ -884,8 +855,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet> Handler
             input,
             target_gas,
             is_static,
-            true,
-            true,
             context,
         )
     }
@@ -893,9 +862,9 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet> Handler
     #[inline]
     fn pre_validate(
         &mut self,
-        context: &Context,
-        opcode: Opcode,
-        stack: &Stack,
+        _context: &Context,
+        _opcode: Opcode,
+        _stack: &Stack,
     ) -> Result<(), ExitError> {
         Ok(())
     }

@@ -112,9 +112,9 @@ impl MemoryStackSubstate {
         (applies, self.logs)
     }
 
-    pub fn enter(&mut self, gas_limit: u64, is_static: bool) {
+    pub fn enter(&mut self, is_static: bool) {
         let mut entering = Self {
-            metadata: self.metadata.spit_child(gas_limit, is_static),
+            metadata: self.metadata.spit_child(is_static),
             parent: None,
             logs: Vec::new(),
             accounts: BTreeMap::new(),
@@ -472,8 +472,8 @@ impl<'backend, B: Backend> StackState for MemoryStackState<'backend, B> {
         self.substate.metadata_mut()
     }
 
-    fn enter(&mut self, gas_limit: u64, is_static: bool) {
-        self.substate.enter(gas_limit, is_static)
+    fn enter(&mut self, is_static: bool) {
+        self.substate.enter(is_static)
     }
 
     fn exit_commit(&mut self) -> Result<(), ExitError> {
