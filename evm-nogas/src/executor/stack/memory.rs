@@ -428,6 +428,10 @@ impl<'backend, B: Backend> Backend for MemoryStackState<'backend, B> {
         self.backend.block_base_fee_per_gas()
     }
 
+    fn gas_left(&self) -> U256 {
+        self.backend.gas_left()
+    }
+
     fn chain_id(&self) -> U256 {
         self.backend.chain_id()
     }

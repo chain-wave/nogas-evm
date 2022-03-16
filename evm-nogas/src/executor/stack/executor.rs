@@ -324,19 +324,6 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet>
         }
     }
 
-    /// Get remaining gas.
-    pub fn gas(&self) -> u64 {
-        // self.state.metadata().gasometer.gas()
-        0
-    }
-
-    //  fn record_create_transaction_cost(
-    //     &mut self,
-    //     init_code: &[u8],
-    //     access_list: &[(H160, Vec<H256>)],
-    // ) -> Result<(), ExitError> {
-    //  }
-
     /// Execute a `CREATE` transaction.
     pub fn transact_create(
         &mut self,
@@ -757,8 +744,7 @@ impl<'config, 'precompiles, S: StackState, P: PrecompileSet> Handler
     }
 
     fn gas_left(&self) -> U256 {
-        // Inject wasm gas.
-        U256::max_value()
+        self.state.gas_left()
     }
 
     fn gas_price(&self) -> U256 {

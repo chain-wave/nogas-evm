@@ -84,6 +84,9 @@ impl<'vicinity> Backend for MemoryBackend<'vicinity> {
     fn gas_price(&self) -> U256 {
         self.vicinity.gas_price
     }
+    fn gas_left(&self) -> U256 {
+        U256::zero()
+    }
     fn origin(&self) -> H160 {
         self.vicinity.origin
     }

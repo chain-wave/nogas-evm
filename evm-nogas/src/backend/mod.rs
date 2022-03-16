@@ -54,6 +54,8 @@ pub enum Apply<I> {
 pub trait Backend {
     /// Gas price. Unused for London.
     fn gas_price(&self) -> U256;
+    /// Ges left
+    fn gas_left(&self) -> U256;
     /// Origin.
     fn origin(&self) -> H160;
     /// Environmental block hash.
