@@ -1,10 +1,10 @@
 [package]
 name = "evm"
-version = "0.33.1"
+version = "0.1.0"
 license = "Apache-2.0"
-authors = ["Wei Tang <hi@that.world>", "Parity Technologies <admin@parity.io>"]
-description = "SputnikVM - a Portable Blockchain Virtual Machine"
-repository = "https://github.com/sorpaas/rust-evm"
+authors = ["tiannian <dtiannian@gmail.com>"]
+description = "SputnikVM - a Portable Blockchain Virtual Machine without gas"
+repository = "https://github.com/tiannian/evm-nogas"
 keywords = ["no_std", "ethereum"]
 edition = "2018"
 
