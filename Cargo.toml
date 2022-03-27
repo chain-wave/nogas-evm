@@ -6,7 +6,7 @@ authors = ["tiannian <dtiannian@gmail.com>"]
 description = "SputnikVM - a Portable Blockchain Virtual Machine without gas"
 repository = "https://github.com/tiannian/evm-nogas"
 keywords = ["no_std", "ethereum"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 log = { version = "0.4", default-features = false }
